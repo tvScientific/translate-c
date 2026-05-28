@@ -1687,7 +1687,7 @@ fn renderNode(c: *Context, node: Node) Allocator.Error!NodeIndex {
             }
             const l_brace = try c.addToken(.l_brace, "{");
 
-            var stmts = .empty;
+            var stmts: std.ArrayListUnmanaged(NodeIndex) = .empty;
             defer stmts.deinit(c.gpa);
             for (payload.stmts) |stmt| {
                 const res = (try renderNodeOpt(c, stmt)) orelse continue;
