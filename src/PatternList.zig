@@ -91,8 +91,8 @@ const Pattern = struct {
     fn init(pl: *Pattern, allocator: mem.Allocator, template: Template) Error!void {
         const source = template[0];
         const impl = template[1];
-        var tok_list = std.ArrayList(CToken).init(allocator);
-        defer tok_list.deinit();
+        var tok_list: std.ArrayListUnmanaged(CToken) = .empty;
+        defer tok_list.deinit(allocator);
 
         pl.* = .{
             .slicer = try tokenizeMacro(source, &tok_list),
@@ -170,7 +170,7 @@ pub fn match(pl: PatternList, ms: MacroSlicer) Error!?Impl {
     return null;
 }
 
-fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayList(CToken)) Error!MacroSlicer {
+fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayListUnmanaged(CToken)) Error!MacroSlicer {
     var param_count: u32 = 0;
     var param_buf: [8][]const u8 = undefined;
 
@@ -243,8 +243,8 @@ test "Macro matching" {
             source: []const u8,
             comptime expected_match: ?Impl,
         ) !void {
-            var tok_list = std.ArrayList(CToken).init(allocator);
-            defer tok_list.deinit();
+            var tok_list: std.ArrayListUnmanaged(CToken) = .empty;
+            defer tok_list.deinit(allocator);
             const ms = try tokenizeMacro(source, &tok_list);
             defer allocator.free(ms.tokens);
 

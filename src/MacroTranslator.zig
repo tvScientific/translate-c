@@ -175,8 +175,8 @@ pub fn transMacro(mt: *MacroTranslator) ParseError!void {
 }
 
 fn createMacroFn(mt: *MacroTranslator, name: []const u8, ref: ZigNode, proto_alias: *ast.Payload.Func) !ZigNode {
-    var fn_params = std.ArrayList(ast.Payload.Param).init(mt.t.gpa);
-    defer fn_params.deinit();
+    var fn_params: std.ArrayListUnmanaged(ast.Payload.Param) = .empty;
+    defer fn_params.deinit(mt.t.gpa);
 
     var block_scope = try Scope.Block.init(mt.t, &mt.t.global_scope.base, false);
     defer block_scope.deinit();
@@ -184,7 +184,7 @@ fn createMacroFn(mt: *MacroTranslator, name: []const u8, ref: ZigNode, proto_ali
     for (proto_alias.data.params) |param| {
         const param_name = try block_scope.makeMangledName(param.name orelse "arg");
 
-        try fn_params.append(.{
+        try fn_params.append(mt.t.gpa, .{
             .name = param_name,
             .type = param.type,
             .is_noalias = param.is_noalias,
@@ -1149,12 +1149,12 @@ fn parseCPostfixExprInner(mt: *MacroTranslator, scope: *Scope, type_name: ?ZigNo
                 if (mt.eat(.r_paren)) {
                     node = try ZigTag.call.create(mt.t.arena, .{ .lhs = node, .args = &.{} });
                 } else {
-                    var args = std.ArrayList(ZigNode).init(mt.t.gpa);
-                    defer args.deinit();
+                    var args: std.ArrayListUnmanaged(ZigNode) = .empty;
+                    defer args.deinit(mt.t.gpa);
 
                     while (true) {
                         const arg = try mt.parseCCondExpr(scope);
-                        try args.append(arg);
+                        try args.append(mt.t.gpa, arg);
 
                         const next_id = mt.peek();
                         switch (next_id) {
@@ -1179,8 +1179,8 @@ fn parseCPostfixExprInner(mt: *MacroTranslator, scope: *Scope, type_name: ?ZigNo
 
                 // Check for designated field initializers
                 if (mt.peek() == .period) {
-                    var init_vals = std.ArrayList(ast.Payload.ContainerInitDot.Initializer).init(mt.t.gpa);
-                    defer init_vals.deinit();
+                    var init_vals: std.ArrayListUnmanaged(ast.Payload.ContainerInitDot.Initializer) = .empty;
+                    defer init_vals.deinit(mt.t.gpa);
 
                     while (true) {
                         try mt.expect(.period);
@@ -1189,7 +1189,7 @@ fn parseCPostfixExprInner(mt: *MacroTranslator, scope: *Scope, type_name: ?ZigNo
                         try mt.expect(.equal);
 
                         const val = try mt.parseCCondExpr(scope);
-                        try init_vals.append(.{ .name = name, .value = val });
+                        try init_vals.append(mt.t.gpa, .{ .name = name, .value = val });
 
                         const next_id = mt.peek();
                         switch (next_id) {
@@ -1211,12 +1211,12 @@ fn parseCPostfixExprInner(mt: *MacroTranslator, scope: *Scope, type_name: ?ZigNo
                     continue;
                 }
 
-                var init_vals = std.ArrayList(ZigNode).init(mt.t.gpa);
-                defer init_vals.deinit();
+                var init_vals: std.ArrayListUnmanaged(ZigNode) = .empty;
+                defer init_vals.deinit(mt.t.gpa);
 
                 while (true) {
                     const val = try mt.parseCCondExpr(scope);
-                    try init_vals.append(val);
+                    try init_vals.append(mt.t.gpa, val);
 
                     const next_id = mt.peek();
                     switch (next_id) {

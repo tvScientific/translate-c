@@ -162,7 +162,7 @@ fn caseFromFile(b: *std.Build, entry: std.fs.Dir.Walker.Entry) !Case {
 }
 
 fn trailing(arena: std.mem.Allocator, it: *std.mem.TokenIterator(u8, .scalar)) ![]const u8 {
-    var buf: std.ArrayList(u8) = .empty;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
     defer buf.deinit(arena);
     while (it.next()) |line| {
         if (line.len < 3) continue;
@@ -174,9 +174,9 @@ fn trailing(arena: std.mem.Allocator, it: *std.mem.TokenIterator(u8, .scalar)) !
 }
 
 fn trailingSplit(arena: std.mem.Allocator, it: *std.mem.TokenIterator(u8, .scalar)) ![]const []const u8 {
-    var out: std.ArrayList([]const u8) = .empty;
+    var out: std.ArrayListUnmanaged([]const u8) = .empty;
     defer out.deinit(arena);
-    var buf: std.ArrayList(u8) = .empty;
+    var buf: std.ArrayListUnmanaged(u8) = .empty;
     defer buf.deinit(arena);
 
     while (it.next()) |line| {

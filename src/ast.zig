@@ -798,9 +798,9 @@ pub const Payload = struct {
 pub fn render(gpa: Allocator, nodes: []const Node) !std.zig.Ast {
     var ctx: Context = .{
         .gpa = gpa,
-        .buf = std.ArrayList(u8).init(gpa),
+        .buf = .empty,
     };
-    defer ctx.buf.deinit();
+    defer ctx.buf.deinit(gpa);
     defer ctx.nodes.deinit(gpa);
     defer ctx.extra_data.deinit(gpa);
     defer ctx.tokens.deinit(gpa);
@@ -822,8 +822,8 @@ pub fn render(gpa: Allocator, nodes: []const Node) !std.zig.Ast {
     });
 
     const root_members = blk: {
-        var result = std.ArrayList(NodeIndex).init(gpa);
-        defer result.deinit();
+        var result = .empty;
+        defer result.deinit(gpa);
 
         for (nodes) |node| {
             const res = (try renderNodeOpt(&ctx, node)) orelse continue;
@@ -859,14 +859,14 @@ const TokenTag = std.zig.Token.Tag;
 
 const Context = struct {
     gpa: Allocator,
-    buf: std.ArrayList(u8),
+    buf: std.ArrayListUnmanaged(u8) = .empty,
     nodes: std.zig.Ast.NodeList = .{},
     extra_data: std.ArrayListUnmanaged(u32) = .empty,
     tokens: std.zig.Ast.TokenList = .{},
 
     fn addTokenFmt(c: *Context, tag: TokenTag, comptime format: []const u8, args: anytype) Allocator.Error!TokenIndex {
         const start_index = c.buf.items.len;
-        try c.buf.print(format ++ " ", args);
+        try c.buf.print(c.gpa, format ++ " ", args);
 
         try c.tokens.append(c.gpa, .{
             .tag = tag,
@@ -925,8 +925,8 @@ fn renderNodeOpt(c: *Context, node: Node) Allocator.Error!?NodeIndex {
     switch (node.tag()) {
         .warning => {
             const payload = node.castTag(.warning).?.data;
-            try c.buf.appendSlice(payload);
-            try c.buf.append('\n');
+            try c.buf.appendSlice(c.gpa, payload);
+            try c.buf.append(c.gpa, '\n');
             return null;
         },
         .discard => {
@@ -1687,8 +1687,8 @@ fn renderNode(c: *Context, node: Node) Allocator.Error!NodeIndex {
             }
             const l_brace = try c.addToken(.l_brace, "{");
 
-            var stmts = std.ArrayList(NodeIndex).init(c.gpa);
-            defer stmts.deinit();
+            var stmts = .empty;
+            defer stmts.deinit(c.gpa);
             for (payload.stmts) |stmt| {
                 const res = (try renderNodeOpt(c, stmt)) orelse continue;
                 try addSemicolonIfNeeded(c, stmt);
@@ -3035,10 +3035,10 @@ fn renderMacroFunc(c: *Context, node: Node) !NodeIndex {
     });
 }
 
-fn renderParams(c: *Context, params: []Payload.Param, is_var_args: bool) !std.ArrayList(NodeIndex) {
+fn renderParams(c: *Context, params: []Payload.Param, is_var_args: bool) !std.ArrayListUnmanaged(NodeIndex) {
     _ = try c.addToken(.l_paren, "(");
-    var rendered = try std.ArrayList(NodeIndex).initCapacity(c.gpa, @max(params.len, 1));
-    errdefer rendered.deinit();
+    var rendered = try std.ArrayListUnmanaged(NodeIndex).initCapacity(c.gpa, @max(params.len, 1));
+    errdefer rendered.deinit(c.gpa);
 
     for (params, 0..) |param, i| {
         if (i != 0) _ = try c.addToken(.comma, ",");

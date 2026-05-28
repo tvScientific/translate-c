@@ -499,11 +499,11 @@ fn transRecordDecl(t: *Translator, scope: *Scope, record_qt: QualType) Error!voi
             break :init ZigTag.opaque_literal.init();
         }
 
-        var fields = try std.ArrayList(ast.Payload.Container.Field).initCapacity(t.gpa, record_ty.fields.len);
-        defer fields.deinit();
+        var fields = try std.ArrayListUnmanaged(ast.Payload.Container.Field).initCapacity(t.gpa, record_ty.fields.len);
+        defer fields.deinit(t.gpa);
 
-        var functions = std.ArrayList(ZigNode).init(t.gpa);
-        defer functions.deinit();
+        var functions = std.ArrayListUnmanaged(ZigNode).init(t.gpa);
+        defer functions.deinit(t.gpa);
 
         var unnamed_field_count: u32 = 0;
 
@@ -1799,8 +1799,8 @@ fn transSwitch(t: *Translator, scope: *Scope, switch_stmt: Node.SwitchStmt) Tran
     defer cond_scope.deinit();
     const switch_expr = try t.transExpr(&cond_scope.base, switch_stmt.cond, .used);
 
-    var cases = std.ArrayList(ZigNode).init(t.gpa);
-    defer cases.deinit();
+    var cases: std.ArrayListUnmanaged(ZigNode) = .empty;
+    defer cases.deinit(t.gpa);
     var has_default = false;
 
     const body_node = switch_stmt.body.get(t.tree);
@@ -1813,8 +1813,8 @@ fn transSwitch(t: *Translator, scope: *Scope, switch_stmt: Node.SwitchStmt) Tran
     for (body, 0..) |stmt, i| {
         switch (stmt.get(t.tree)) {
             .case_stmt => {
-                var items = std.ArrayList(ZigNode).init(t.gpa);
-                defer items.deinit();
+                var items: std.ArrayListUnmanaged(ZigNode) = .empty;
+                defer items.deinit(t.gpa);
                 const sub = try t.transCaseStmt(base_scope, stmt, &items);
                 const res = try t.transSwitchProngStmt(base_scope, sub, body[i..]);
 
@@ -1871,7 +1871,7 @@ fn transCaseStmt(
     t: *Translator,
     scope: *Scope,
     stmt: Node.Index,
-    items: *std.ArrayList(ZigNode),
+    items: *std.ArrayListUnmanaged(ZigNode),
 ) TransError!Node.Index {
     var sub = stmt;
     var seen_default = false;
@@ -3449,8 +3449,8 @@ fn transStringLiteralInitializer(
         const init_list = try t.arena.alloc(ZigNode, @intCast(num_inits));
         for (init_list, 0..) |*item, i| {
             const codepoint = switch (size) {
-                2 => @as(*const u16, @alignCast(@ptrCast(bytes.ptr + i * 2))).*,
-                4 => @as(*const u32, @alignCast(@ptrCast(bytes.ptr + i * 4))).*,
+                2 => @as(*const u16, @ptrCast(@alignCast(bytes.ptr + i * 2))).*,
+                4 => @as(*const u32, @ptrCast(@alignCast(bytes.ptr + i * 4))).*,
                 else => unreachable,
             };
             item.* = try t.createCharLiteralNode(false, codepoint);
@@ -3996,8 +3996,8 @@ fn createFlexibleMemberFn(
 // =================
 
 fn transMacros(t: *Translator) !void {
-    var tok_list = std.ArrayList(CToken).init(t.gpa);
-    defer tok_list.deinit();
+    var tok_list: std.ArrayListUnmanaged(CToken) = .empty;
+    defer tok_list.deinit(t.gpa);
 
     var pattern_list = try PatternList.init(t.gpa);
     defer pattern_list.deinit(t.gpa);
