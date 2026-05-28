@@ -843,7 +843,7 @@ pub fn render(gpa: Allocator, nodes: []const Node) !std.zig.Ast {
     });
 
     return .{
-        .source = try ctx.buf.toOwnedSliceSentinel(0),
+        .source = try ctx.buf.toOwnedSliceSentinel(gpa, 0),
         .tokens = ctx.tokens.toOwnedSlice(),
         .nodes = ctx.nodes.toOwnedSlice(),
         .extra_data = try ctx.extra_data.toOwnedSlice(gpa),
@@ -2831,7 +2831,7 @@ fn renderFunc(c: *Context, node: Node) !NodeIndex {
     if (payload.name) |some| _ = try c.addIdentifier(some);
 
     const params = try renderParams(c, payload.params, payload.is_var_args);
-    defer params.deinit();
+    defer params.deinit(c.gpa);
     var span: NodeSubRange = undefined;
     if (params.items.len > 1) span = try c.listToSpan(params.items);
 
