@@ -822,12 +822,12 @@ pub fn render(gpa: Allocator, nodes: []const Node) !std.zig.Ast {
     });
 
     const root_members = blk: {
-        var result = .empty;
+        var result: std.ArrayListUnmanaged(NodeIndex) = .empty;
         defer result.deinit(gpa);
 
         for (nodes) |node| {
             const res = (try renderNodeOpt(&ctx, node)) orelse continue;
-            try result.append(res);
+            try result.append(gpa, res);
         }
         break :blk try ctx.listToSpan(result.items);
     };
