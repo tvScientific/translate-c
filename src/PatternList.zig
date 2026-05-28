@@ -95,7 +95,7 @@ const Pattern = struct {
         defer tok_list.deinit(allocator);
 
         pl.* = .{
-            .slicer = try tokenizeMacro(source, &tok_list),
+            .slicer = try tokenizeMacro(source, &tok_list, allocator),
             .impl = impl,
         };
     }
@@ -170,7 +170,7 @@ pub fn match(pl: PatternList, ms: MacroSlicer) Error!?Impl {
     return null;
 }
 
-fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayListUnmanaged(CToken)) Error!MacroSlicer {
+fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayListUnmanaged(CToken), allocator: mem.Allocator) Error!MacroSlicer {
     var param_count: u32 = 0;
     var param_buf: [8][]const u8 = undefined;
 
@@ -207,7 +207,7 @@ fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayListUnmanaged(CToken)) 
                 const slice = source[tok.start..tok.end];
                 for (param_buf[0..param_count], 0..) |param, i| {
                     if (std.mem.eql(u8, param, slice)) {
-                        try tok_list.append(.{
+                        try tok_list.append(allocator, .{
                             .id = .macro_param,
                             .source = .unused,
                             .end = @intCast(i),
@@ -224,12 +224,12 @@ fn tokenizeMacro(source: []const u8, tok_list: *std.ArrayListUnmanaged(CToken)) 
             .nl, .eof => break,
             else => {},
         }
-        try tok_list.append(tok);
+        try tok_list.append(allocator, tok);
     }
 
     return .{
         .source = source,
-        .tokens = try tok_list.toOwnedSlice(),
+        .tokens = try tok_list.toOwnedSlice(allocator),
         .params = param_count,
     };
 }
@@ -245,7 +245,7 @@ test "Macro matching" {
         ) !void {
             var tok_list: std.ArrayListUnmanaged(CToken) = .empty;
             defer tok_list.deinit(allocator);
-            const ms = try tokenizeMacro(source, &tok_list);
+            const ms = try tokenizeMacro(source, &tok_list, allocator);
             defer allocator.free(ms.tokens);
 
             const matched = try pattern_list.match(ms);

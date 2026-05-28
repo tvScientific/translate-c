@@ -813,7 +813,7 @@ pub fn render(gpa: Allocator, nodes: []const Node) !std.zig.Ast {
     try ctx.tokens.ensureTotalCapacity(gpa, estimated_tokens_count);
     // Estimate that each each token is 3 bytes long.
     const estimated_buf_len = estimated_tokens_count * 3;
-    try ctx.buf.ensureTotalCapacity(estimated_buf_len);
+    try ctx.buf.ensureTotalCapacity(gpa, estimated_buf_len);
 
     ctx.nodes.appendAssumeCapacity(.{
         .tag = .root,
@@ -1692,7 +1692,7 @@ fn renderNode(c: *Context, node: Node) Allocator.Error!NodeIndex {
             for (payload.stmts) |stmt| {
                 const res = (try renderNodeOpt(c, stmt)) orelse continue;
                 try addSemicolonIfNeeded(c, stmt);
-                try stmts.append(res);
+                try stmts.append(c.gpa, res);
             }
             const span = try c.listToSpan(stmts.items);
             _ = try c.addToken(.r_brace, "}");

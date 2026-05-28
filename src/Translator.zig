@@ -502,7 +502,7 @@ fn transRecordDecl(t: *Translator, scope: *Scope, record_qt: QualType) Error!voi
         var fields = try std.ArrayListUnmanaged(ast.Payload.Container.Field).initCapacity(t.gpa, record_ty.fields.len);
         defer fields.deinit(t.gpa);
 
-        var functions = std.ArrayListUnmanaged(ZigNode).init(t.gpa);
+        var functions: std.ArrayListUnmanaged(ZigNode) = .empty;
         defer functions.deinit(t.gpa);
 
         var unnamed_field_count: u32 = 0;
@@ -568,7 +568,7 @@ fn transRecordDecl(t: *Translator, scope: *Scope, record_qt: QualType) Error!voi
                     field_name = try std.fmt.allocPrint(t.arena, "_{s}", .{field_name});
 
                     const member = try t.createFlexibleMemberFn(member_name, field_name);
-                    try functions.append(member);
+                    try functions.append(t.gpa, member);
 
                     break :field_type zero_array;
                 }
@@ -610,7 +610,7 @@ fn transRecordDecl(t: *Translator, scope: *Scope, record_qt: QualType) Error!voi
             const padding_bits = record_ty.layout.?.size_bits;
             const alignment_bits = record_ty.layout.?.field_alignment_bits;
 
-            try fields.append(.{
+            try fields.append(t.gpa, .{
                 .name = "_padding",
                 .type = try ZigTag.type.create(t.arena, try std.fmt.allocPrint(t.arena, "u{d}", .{padding_bits})),
                 .alignment = @divExact(alignment_bits, 8),
@@ -1015,7 +1015,7 @@ fn transStaticAssert(t: *Translator, scope: *Scope, static_assert: Node.StaticAs
         allocating.writer.end -= 1; // printString adds a terminating " so we need to remove it
         allocating.writer.writeAll("\\\"\"") catch return error.OutOfMemory;
 
-        break :str try ZigTag.string_literal.create(t.arena, try t.arena.dupe(u8, allocating.getWritten()));
+        break :str try ZigTag.string_literal.create(t.arena, try t.arena.dupe(u8, allocating.written()));
     } else try ZigTag.string_literal.create(t.arena, "\"static assertion failed\"");
 
     const assert_node = try ZigTag.static_assert.create(t.arena, .{ .lhs = condition, .rhs = diagnostic });
@@ -1030,7 +1030,7 @@ fn transGlobalAsm(t: *Translator, scope: *Scope, global_asm: Node.SimpleAsm) Err
     defer allocating.deinit();
     aro.Value.printString(bytes, global_asm.asm_str.qt(t.tree), t.comp, &allocating.writer) catch return error.OutOfMemory;
 
-    const str_node = try ZigTag.string_literal.create(t.arena, try t.arena.dupe(u8, allocating.getWritten()));
+    const str_node = try ZigTag.string_literal.create(t.arena, try t.arena.dupe(u8, allocating.written()));
 
     const asm_node = try ZigTag.asm_simple.create(t.arena, str_node);
     const block = try ZigTag.block_single.create(t.arena, asm_node);
@@ -1821,13 +1821,13 @@ fn transSwitch(t: *Translator, scope: *Scope, switch_stmt: Node.SwitchStmt) Tran
                 if (items.items.len == 0) {
                     has_default = true;
                     const switch_else = try ZigTag.switch_else.create(t.arena, res);
-                    try cases.append(switch_else);
+                    try cases.append(t.gpa, switch_else);
                 } else {
                     const switch_prong = try ZigTag.switch_prong.create(t.arena, .{
                         .cases = try t.arena.dupe(ZigNode, items.items),
                         .cond = res,
                     });
-                    try cases.append(switch_prong);
+                    try cases.append(t.gpa, switch_prong);
                 }
             },
             .default_stmt => |default_stmt| {
@@ -1843,7 +1843,7 @@ fn transSwitch(t: *Translator, scope: *Scope, switch_stmt: Node.SwitchStmt) Tran
                 const res = try t.transSwitchProngStmt(base_scope, sub, body[i..]);
 
                 const switch_else = try ZigTag.switch_else.create(t.arena, res);
-                try cases.append(switch_else);
+                try cases.append(t.gpa, switch_else);
             },
             else => {}, // collected in transSwitchProngStmt
         }
@@ -1851,7 +1851,7 @@ fn transSwitch(t: *Translator, scope: *Scope, switch_stmt: Node.SwitchStmt) Tran
 
     if (!has_default) {
         const else_prong = try ZigTag.switch_else.create(t.arena, ZigTag.empty_block.init());
-        try cases.append(else_prong);
+        try cases.append(t.gpa, else_prong);
     }
 
     const switch_node = try ZigTag.@"switch".create(t.arena, .{
@@ -1896,7 +1896,7 @@ fn transCaseStmt(
                     break :blk try ZigTag.ellipsis3.create(t.arena, .{ .lhs = start_node, .rhs = end_node });
                 } else try t.transExpr(scope, case_stmt.start, .used);
 
-                try items.append(expr);
+                try items.append(t.gpa, expr);
                 sub = case_stmt.body;
             },
             else => return sub,
@@ -4009,7 +4009,7 @@ fn transMacros(t: *Translator) !void {
         }
 
         tok_list.items.len = 0;
-        try tok_list.ensureUnusedCapacity(macro.tokens.len);
+        try tok_list.ensureUnusedCapacity(t.gpa, macro.tokens.len);
         for (macro.tokens) |tok| {
             switch (tok.id) {
                 .invalid => continue,
