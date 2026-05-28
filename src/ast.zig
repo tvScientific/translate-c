@@ -2830,7 +2830,7 @@ fn renderFunc(c: *Context, node: Node) !NodeIndex {
     const fn_token = try c.addToken(.keyword_fn, "fn");
     if (payload.name) |some| _ = try c.addIdentifier(some);
 
-    const params: std.ArrayListUnmanaged(NodeIndex) = try renderParams(c, payload.params, payload.is_var_args);
+    var params: std.ArrayListUnmanaged(NodeIndex) = try renderParams(c, payload.params, payload.is_var_args);
     defer params.deinit(c.gpa);
     var span: NodeSubRange = undefined;
     if (params.items.len > 1) span = try c.listToSpan(params.items);
@@ -3037,7 +3037,7 @@ fn renderMacroFunc(c: *Context, node: Node) !NodeIndex {
 
 fn renderParams(c: *Context, params: []Payload.Param, is_var_args: bool) !std.ArrayListUnmanaged(NodeIndex) {
     _ = try c.addToken(.l_paren, "(");
-    var rendered = try std.ArrayListUnmanaged(NodeIndex).initCapacity(c.gpa, @max(params.len, 1));
+    var rendered: std.ArrayListUnmanaged(NodeIndex) = try .initCapacity(c.gpa, @max(params.len, 1));
     errdefer rendered.deinit(c.gpa);
 
     for (params, 0..) |param, i| {
