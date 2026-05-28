@@ -2830,7 +2830,7 @@ fn renderFunc(c: *Context, node: Node) !NodeIndex {
     const fn_token = try c.addToken(.keyword_fn, "fn");
     if (payload.name) |some| _ = try c.addIdentifier(some);
 
-    const params = try renderParams(c, payload.params, payload.is_var_args);
+    const params: std.ArrayListUnmanaged(NodeIndex) = try renderParams(c, payload.params, payload.is_var_args);
     defer params.deinit(c.gpa);
     var span: NodeSubRange = undefined;
     if (params.items.len > 1) span = try c.listToSpan(params.items);
