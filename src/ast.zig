@@ -2998,8 +2998,8 @@ fn renderMacroFunc(c: *Context, node: Node) !NodeIndex {
     const fn_token = try c.addToken(.keyword_fn, "fn");
     _ = try c.addIdentifier(payload.name);
 
-    const params = try renderParams(c, payload.params, false);
-    defer params.deinit();
+    var params = try renderParams(c, payload.params, false);
+    defer params.deinit(c.gpa);
     var span: NodeSubRange = undefined;
     if (params.items.len > 1) span = try c.listToSpan(params.items);
 
