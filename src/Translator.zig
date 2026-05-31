@@ -3680,7 +3680,14 @@ fn transTypeInfo(
     const operand = operand: {
         if (typeinfo.expr) |expr| {
             const operand = try t.transExpr(scope, expr, .used);
-            break :operand try ZigTag.typeof.create(t.arena, operand);
+            switch (operand.tag()) {
+                .string_literal => {
+                    const deref = try ZigTag.deref.create(t.arena, operand);
+                    break :operand try ZigTag.typeof.create(t.arena, deref);
+                },
+                .identifier, .deref => {},
+                else => break :operand try ZigTag.typeof.create(t.arena, operand),
+            }
         }
         break :operand try t.transType(scope, typeinfo.operand_qt, typeinfo.op_tok);
     };
